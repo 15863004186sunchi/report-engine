@@ -14,13 +14,76 @@ echo "=========================================="
 echo "    >>> 准备开始构建 Report Engine <<<"
 echo "=========================================="
 
-# 1. 前置环境检查
-for cmd in git mvn npm docker docker-compose; do
+# 1. 前置环境检查及自动安装
+echo ""
+echo "---> [0/5] 检查并尝试安装前置依赖 (Git/Maven/Node/Docker) ..."
+
+# 获取包管理器类型
+PKG_MANAGER=""
+if command -v apt-get &> /dev/null; then
+    PKG_MANAGER="apt-get"
+elif command -v yum &> /dev/null; then
+    PKG_MANAGER="yum"
+else
+    echo "警告: 无法识别系统包管理器 (非 apt/yum)，如果是 MacOS 等，请手动安装依赖。"
+fi
+
+install_pkg() {
+    local cmd=$1
+    local pkg=$2
     if ! command -v $cmd &> /dev/null; then
-        echo "错误: 未找到 $cmd 命令！请先安装相应的依赖环境。"
+        echo "未检测到 $cmd，正在尝试自动安装..."
+        if [ "$PKG_MANAGER" == "apt-get" ]; then
+            sudo apt-get update -y || true
+            sudo apt-get install -y $pkg
+        elif [ "$PKG_MANAGER" == "yum" ]; then
+            sudo yum install -y $pkg
+        else
+            echo "错误: 缺少 $cmd 且无法自动安装，请手动安装！"
+            exit 1
+        fi
+    fi
+}
+
+# 基础命令安装
+install_pkg "wget" "wget"
+install_pkg "git" "git"
+install_pkg "mvn" "maven"
+
+# 安装 Node.js 和 npm
+if ! command -v npm &> /dev/null; then
+    echo "未检测到 npm，正在尝试安装 Node.js..."
+    if [ "$PKG_MANAGER" == "apt-get" ]; then
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        sudo apt-get install -y nodejs
+    elif [ "$PKG_MANAGER" == "yum" ]; then
+        curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+        sudo yum install -y nodejs
+    else
+        echo "错误: 缺少 npm 且无法自动安装，请手动安装！"
         exit 1
     fi
-done
+fi
+
+# 安装 Docker
+if ! command -v docker &> /dev/null; then
+    echo "未检测到 docker，正在尝试安装 Docker..."
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sudo sh get-docker.sh
+    rm -f get-docker.sh
+    sudo systemctl enable docker || true
+    sudo systemctl start docker || true
+fi
+
+# 安装 Docker-Compose
+if ! command -v docker-compose &> /dev/null; then
+    echo "未检测到 docker-compose，正在尝试安装 Docker Compose..."
+    sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    sudo chmod +x /usr/local/bin/docker-compose
+    sudo ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose || true
+fi
+
+echo "所有前置依赖检查完成！"
 
 # 2. 从 GitHub 拉取或更新源码
 echo ""
