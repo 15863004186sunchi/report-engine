@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # 1. 业务及报表数据库
+  mysql:
+    image: mysql:8.0
+    container_name: report_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: report_engine
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+      # 将初始化脚本挂载到 docker-entrypoint-initdb.d 下，首次启动会自动执行跑表结构
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  # 2. 定时任务调度中心 XXL-JOB-ADMIN (由官方镜像提供支持)
+  xxl-job-admin:
+    image: xuxueli/xxl-job-admin:2.4.0
+    container_name: report_xxl_job_admin
+    restart: always
+    ports:
+      - "8085:8080"
+    environment:
+      # XXL-JOB Admin 默认也会依赖 MySQL，真实环境需要单独配置其自身的数据源
+      PARAMS: '--spring.datasource.url=jdbc:mysql://mysql:3306/xxl_job?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai --spring.datasource.username=root --spring.datasource.password=rootpassword'
+    depends_on:
+      - mysql
+
+  # 3. 报表引擎服务端 (我们刚刚开发的Java应用)
+  report-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: report_engine_app
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - TZ=Asia/Shanghai
+      # 覆盖 application.yml 中的默认配置，指向上面的 MySQL 容器
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/report_engine?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=rootpassword
+      # 指定 XXL-JOB Executor 注册到的 Admin 地址
+      - XXL_JOB_ADMIN_ADDRESSES=http://xxl-job-admin:8080/xxl-job-admin
+    depends_on:
+      - mysql
+      - xxl-job-admin

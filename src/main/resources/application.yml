@@ -1,0 +1,41 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: report-engine
+  datasource:
+    # 需替换为实际数据库连接信息
+    url: jdbc:mysql://127.0.0.1:3306/report_engine?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  # 实体扫描，多个package用逗号或者分号分隔
+  type-aliases-package: com.report.engine.entity
+  global-config:
+    db-config:
+      # 主键类型 AUTO:"数据库ID自增"
+      id-type: auto
+      # 下划线转驼峰
+      column-underline: true
+  configuration:
+    # 开启驼峰命名规则自动转换
+    map-underscore-to-camel-case: true
+    # 打印 sql
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# XXL-JOB (可选，根据实际情况配置)
+xxl:
+  job:
+    admin:
+      addresses: http://127.0.0.1:8080/xxl-job-admin
+    executor:
+      appname: report-engine-executor
+      address:
+      ip:
+      port: 9999
+      logpath: /data/applogs/xxl-job/jobhandler
+      logretentiondays: 30
