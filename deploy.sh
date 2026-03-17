@@ -52,11 +52,44 @@ install_pkg "git" "git"
 # 安装 Docker
 if ! command -v docker &> /dev/null; then
     echo "未检测到 docker，正在尝试安装 Docker..."
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    sudo sh get-docker.sh
-    rm -f get-docker.sh
-    sudo systemctl enable docker || true
-    sudo systemctl start docker || true
+    if [ "$PKG_MANAGER" == "yum" ]; then
+        echo "检测到 RedHat/CentOS 系，尝试使用 dnf 官方脚本执行安装..."
+        
+        # 移除旧版本（忽略报错）
+        sudo dnf remove -y docker \
+            docker-client \
+            docker-client-latest \
+            docker-common \
+            docker-latest \
+            docker-latest-logrotate \
+            docker-logrotate \
+            docker-engine 2>/dev/null || true
+
+        # 添加 Docker 官方 repo
+        sudo dnf install -y dnf-plugins-core
+        sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+        # 安装 Docker Engine
+        sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+        # 启动并设置开机自启
+        sudo systemctl enable --now docker
+        echo "Docker 已启动并设置为开机自启"
+
+        # 将当前登录用户加入 docker 组
+        REAL_USER="${SUDO_USER:-$USER}"
+        if [[ -n "$REAL_USER" && "$REAL_USER" != "root" ]]; then
+            sudo usermod -aG docker "$REAL_USER"
+            echo "警告: 已将用户 '${REAL_USER}' 加入 docker 组。重新登录后生效，或执行: newgrp docker"
+        fi
+    else
+        echo "检测到 Debian/Ubuntu 或其他系统，使用官方便捷脚本安装..."
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sudo sh get-docker.sh
+        rm -f get-docker.sh
+        sudo systemctl enable docker || true
+        sudo systemctl start docker || true
+    fi
 fi
 
 # 安装 Docker-Compose
