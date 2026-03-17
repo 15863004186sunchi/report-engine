@@ -155,9 +155,14 @@ fi
 echo ""
 echo "---> [3/3] 正在执行 Docker 微服务总装编排 (内部自动编译 Node 与 Java 产物) ..."
 # 停止旧的容器
-docker-compose down
-# 强制启动：Docker在构建镜像时，会启动独立容器链去帮你编译前端和后台包
-docker-compose up -d --build
+docker-compose down || true
+# 为了规避某些老系统上 docker-compose-plugin 的版本 bug (compose build requires buildx 0.17.0)
+# 我们退回到直接使用原始的 docker 指令构建，再由 compose 完成启动
+echo "正在构建 report-engine:latest 镜像..."
+docker build -t report-engine:latest .
+
+# 启动容器栈
+docker-compose up -d
 
 echo ""
 echo "=========================================="

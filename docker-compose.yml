@@ -31,9 +31,7 @@ services:
 
   # 3. 报表引擎服务端 (我们刚刚开发的Java应用)
   report-engine:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: report-engine:latest
     container_name: report_engine_app
     restart: always
     ports:
