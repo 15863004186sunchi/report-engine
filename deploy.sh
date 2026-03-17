@@ -53,10 +53,16 @@ install_pkg "git" "git"
 if ! command -v docker &> /dev/null; then
     echo "未检测到 docker，正在尝试安装 Docker..."
     if [ "$PKG_MANAGER" == "yum" ]; then
-        echo "检测到 RedHat/CentOS 系，尝试使用 dnf 官方脚本执行安装..."
+        # 兼容旧版 CentOS 7，判断是否拥有 dnf 命令
+        YUM_CMD="yum"
+        if command -v dnf &> /dev/null; then
+            YUM_CMD="dnf"
+        fi
+        
+        echo "检测到 RedHat/CentOS 系，尝试使用 ${YUM_CMD} 官方仓库执行安装..."
         
         # 移除旧版本（忽略报错）
-        sudo dnf remove -y docker \
+        sudo ${YUM_CMD} remove -y docker \
             docker-client \
             docker-client-latest \
             docker-common \
@@ -65,12 +71,17 @@ if ! command -v docker &> /dev/null; then
             docker-logrotate \
             docker-engine 2>/dev/null || true
 
-        # 添加 Docker 官方 repo
-        sudo dnf install -y dnf-plugins-core
-        sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+        # 添加 Docker 官方 repo (如果是国外云服务器，可直接用 download.docker.com；国内可替换为 aliyun 镜像)
+        if [ "$YUM_CMD" == "dnf" ]; then
+            sudo dnf install -y dnf-plugins-core
+            sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+        else
+            sudo yum install -y yum-utils
+            sudo yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+        fi
 
         # 安装 Docker Engine
-        sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        sudo ${YUM_CMD} install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
         # 启动并设置开机自启
         sudo systemctl enable --now docker
