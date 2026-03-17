@@ -113,6 +113,25 @@ fi
 
 echo "前置依赖检查完成！机器现已具备运行引擎。"
 
+# ==================================
+# 配置 Docker 国内镜像加速 (规避 i/o timeout)
+# ==================================
+echo ""
+echo "---> [配置] 注入 Docker 镜像加速器配置以解决国内拉取超时..."
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json > /dev/null <<-'EOF'
+{
+  "registry-mirrors": [
+    "https://docker.m.daocloud.io",
+    "https://mirror.baidubce.com",
+    "https://docker.nju.edu.cn",
+    "https://dockerproxy.com"
+  ]
+}
+EOF
+sudo systemctl daemon-reload || true
+sudo systemctl restart docker || true
+
 # 2. 从 GitHub 拉取或更新源码
 echo ""
 echo "---> [2/3] 正在从 GitHub 检查/拉取源码 ..."
